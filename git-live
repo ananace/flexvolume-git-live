@@ -125,6 +125,7 @@ doTick() {
   while read -r repo; do
     if ! cd "$repo"; then
       echo "Failed to cd to $repo, skipping"
+      # TODO: Assume missed unmount and clean data?
       continue
     fi
 
