@@ -80,6 +80,11 @@ assertBinary() {
 }
 
 startPuller() {
+  if [[ -f /run/git-live/active-unit-information ]]; then
+    # Puller timer is already running
+    return 0
+  fi
+
   local interval="$1"
 
   local interval_h=$((interval / 3600))
