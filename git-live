@@ -194,7 +194,7 @@ doMount() {
 
   echo "$mountPoint" >> /run/git-live/active-repos
 
-  exit 0
+  exitSuccess 'Mount succeeded'
 }
 
 doUnmount() {
@@ -209,7 +209,7 @@ doUnmount() {
   sed -e "\|${mountPoint}|d" -i /run/git-live/active-repos
   rm -rf "$mountPoint" "$gitIndex"
 
-  exit 0
+  exitSuccess 'Unmount succeeded'
 }
 
 command=${1:-}
