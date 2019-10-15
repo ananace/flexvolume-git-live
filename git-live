@@ -94,7 +94,7 @@ startPuller() {
   if [[ $interval -gt 0 ]]; then intervalstr="${intervalstr} ${interval}s"; fi
 
   local script="$(realpath "$0")"
-  unit=$(systemd-run --no-block --collect --on-active="$intervalstr" --on-unit-active="$intervalstr" "$script" git-refresh 2>&1)
+  unit=$(systemd-run --on-active="$intervalstr" --on-unit-active="$intervalstr" "$script" git-refresh 2>&1)
   if [[ $? -ne 0 ]]; then
     exitFailure 'Failed to start the refresh timer'
   fi
@@ -154,7 +154,7 @@ doMount() {
     exitFailure "git-live mount: syntax error. invalid json: '$json'"
   fi
 
-  local options="--separate-git-dir \"${gitIndex}\" --single-branch --depth 1 --shallow-submodules --recurse-submodules --no-tags"
+  local options="--separate-git-dir \"${gitIndex}\" --single-branch --depth 1"
 
   repo="$(jq --raw-output -e '.repo' <<< "$json" 2>/dev/null)"
   if [[ $? -ne 0 ]]; then
