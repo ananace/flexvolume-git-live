@@ -188,7 +188,7 @@ doMount() {
     repo="$(sed -e "s|://|://${gitUsername}:${gitPassword}@|" <<< "$repo")"
   fi
 
-  if ! eval git clone "$options" -- "$repo" "$mountPoint"; then
+  if ! eval git clone "$options" -- "$repo" "$mountPoint" &>/dev/null; then
     exitFailure 'git-live mount: git clone failed'
   fi
 
