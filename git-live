@@ -122,6 +122,7 @@ init() {
 }
 
 doTick() {
+  # TODO: Stop timer again if no live mounts exist?
   while read -r repo; do
     if ! cd "$repo"; then
       echo "Failed to cd to $repo, skipping"
