@@ -68,8 +68,7 @@ exitFailure() {
 }
 exitSuccess() {
   local message="${1:-'Ok'}"
-  local template="${2:-'{"status":"Success","message":$message}'}"
-  jq -Mcn --arg message "$message" "$template"
+  jq -Mcn --arg message "$message" '{"status":"Success","message":$message}'
   exit 0
 }
 
@@ -114,7 +113,7 @@ init() {
   mkdir -p /run/git-live/indexes
   startPuller "${FLEXVOLUME_INTERVAL:-$DEFAULT_INTERVAL_SEC}"
 
-  exitSuccess 'The ananace/git-live flexvolume initialized successfully.' '{"status":"Success","message":$message,"capabilities":{"attach":false}}'
+  echo '{"status":"Success","message":"The ananace/git-live flexvolume initialized successfully.","capabilities":{"attach":false}}'
 }
 
 doTick() {
