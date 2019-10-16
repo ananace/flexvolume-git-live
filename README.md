@@ -76,10 +76,6 @@ mounted git index.
 Currently, there's no way to differentiate read-only and read-write, the
 background updates will *always* override any user changes on every interval.
 
-There's also currently no way to specify per-repo timeouts for updating, so all
-mounted repos will at the moment update at the interval set under
-`DEFAULT_INTERVAL_SEC`.
-
 If you only require a static git checkout that doesn't follow any new commits,
 the Kubernetes documentation [provides a better route][1].
 

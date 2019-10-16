@@ -3,6 +3,7 @@
 set -euo pipefail
 # set -x
 
+# 15min
 DEFAULT_INTERVAL_SEC="900"
 
 # ==============================
@@ -47,6 +48,7 @@ DEFAULT_INTERVAL_SEC="900"
 #       driver: ananace/git-live
 #       options:
 #         repo: https://github.com/ananace/flexvolume-git-live
+#         interval: "1h 30s" # Plain numbers are counted as seconds
 #       readOnly: true
 #       secretRef:
 #         name: git-secret
@@ -86,9 +88,10 @@ assertBinary() {
 startPuller() {
   if [[ -f /run/git-live/active-unit-information ]]; then
     # Puller timer is already running
-    return 0
+    return
   fi
 
+  # TODO: Allow configuring the background update rate
   script="$(realpath "$0")"
   if ! unit=$(systemd-run --on-active="30s" --on-unit-active="30s" "$script" git-refresh 2>&1); then
     exitFailure 'Failed to start the refresh timer'
@@ -102,7 +105,7 @@ startPuller() {
 stopPuller() {
   if ! [[ -f /run/git-live/active-unit-information ]]; then
     # Puller timer is already stopped
-    return 0
+    return
   fi
 
   unit_info=$(cat /run/git-live/active-unit-information)
@@ -127,36 +130,53 @@ init() {
   assertBinary systemd-run
 
   mkdir -p /run/git-live/indexes
-  startPuller "${FLEXVOLUME_INTERVAL:-$DEFAULT_INTERVAL_SEC}"
-
   echo '{"status":"Success","message":"The ananace/git-live flexvolume initialized successfully.","capabilities":{"attach":false}}'
 }
 
 doTick() {
-  # TODO: Stop timer again if no live mounts exist?
+  liveStatus=""
+  now=$(date +%s)
   while read -r repo; do
     if ! cd "$repo"; then
       echo "Failed to cd to $repo, skipping"
       # TODO: Assume missed unmount and clean data?
       continue
     fi
+    liveStatus="has active"
 
     # Just to avoid any issues due to the running pod
     mountPointSha="$(pwd | sha256sum | awk '{print $1}')"
     local gitIndex="/run/git-live/indexes/${mountPointSha}"
-    local mountPointSha
-    echo "gitdir: $gitIndex" > .git
+      local mountPointSha
 
-    
-    if ! ref="$(git symbolic-ref --short HEAD)"; then
-      echo "Failed to find head for $repo, skipping"
-      continue
+    if ! interval=$(cat "${gitIndex}/git-live-interval" 2>/dev/null); then
+      interval=$DEFAULT_INTERVAL_SEC
+    fi
+    if ! last_update=$(stat "${gitIndex}/git-live-interval" -c %Y 2>/dev/null); then
+      last_update=0
     fi
 
-    git fetch -q origin "$ref" && \
-    git reset -q --hard "origin/$ref"
-    local ref
+    if [[ $((last_update + interval)) -lt $now ]]; then
+      echo $interval > "${gitIndex}/git-live-interval"
+      echo "gitdir: $gitIndex" > .git
+
+      if ! ref="$(git symbolic-ref --short HEAD)"; then
+        echo "Failed to find head for $repo, skipping"
+        continue
+      fi
+
+      git fetch -q origin "$ref" && \
+      git reset -q --hard "origin/$ref"
+      local ref
+    fi
+    local interval
+    local last_update
   done </run/git-live/active-repos
+
+  if [[ -z "$liveStatus" ]]; then
+    echo "No active git repos"
+    stopPuller
+  fi
 }
 
 doMount() {
@@ -183,11 +203,16 @@ doMount() {
   if [[ "$repo" != "http"* ]]; then
     exitFailure 'git-live mount: currently only supports HTTP(S) checkouts'
   fi
-  
+
   if branch="$(jq --raw-output -e '.branch' <<< "$json")"; then
     options="$options --branch \"${branch}\""
   fi
   local branch
+
+  if ! interval="$(jq --raw-output -e '.interval' <<< "$json")"; then
+    interval=$DEFAULT_INTERVAL_SEC
+  fi
+  interval="$(($(systemd-analyze timespan "$interval" | grep 's:' | awk '{print $2}') / 1000000))"
 
   if gitUsernameBase64="$(jq --raw-output -e '.["kubernetes.io/secret/username"]' <<< "$json" 2>/dev/null)"; then
     if ! gitPasswordBase64="$(jq --raw-output -e '.["kubernetes.io/secret/password"]' <<< "$json" 2>/dev/null)"; then
@@ -212,7 +237,9 @@ doMount() {
   fi
   local repo
 
+  echo "$interval" > "${gitIndex}/git-live-interval"
   echo "$mountPoint" >> /run/git-live/active-repos
+  startPuller || true
 
   exitSuccess 'Mount succeeded'
 }
