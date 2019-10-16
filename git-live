@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -uo pipefail
+set -euo pipefail
 # set -x
 
 DEFAULT_INTERVAL_SEC="900"
@@ -61,6 +61,10 @@ exitNotSupported() {
   echo '{"status":"Not supported"}'
   exit 1
 }
+exitError() {
+  jq -Mcn --arg message "Error in git-live script occurred on line $(caller)" '{"status":"Failure","message":$message}'
+  exit 1
+}
 exitFailure() {
   local message="${1:-'Unknown error in the ananace/git-live flexvolume script'}"
   jq -Mcn --arg message "$message" '{"status":"Failure","message":$message}'
@@ -85,25 +89,14 @@ startPuller() {
     return 0
   fi
 
-  local interval="$1"
-
-  local interval_h=$((interval / 3600))
-  interval=$((interval % 3600))
-  local interval_m=$((interval / 60))
-  interval=$((interval % 60))
-
-  local intervalstr=""
-  if [[ $interval_h -gt 0 ]]; then intervalstr="${interval_h}h"; fi
-  if [[ $interval_m -gt 0 ]]; then intervalstr="${intervalstr} ${interval_m}m"; fi
-  if [[ $interval -gt 0 ]]; then intervalstr="${intervalstr} ${interval}s"; fi
-
-  local script="$(realpath "$0")"
-  unit=$(systemd-run --on-active="$intervalstr" --on-unit-active="$intervalstr" "$script" git-refresh 2>&1)
-  if [[ $? -ne 0 ]]; then
+  script="$(realpath "$0")"
+  if ! unit=$(systemd-run --on-active="30s" --on-unit-active="30s" "$script" git-refresh 2>&1); then
     exitFailure 'Failed to start the refresh timer'
   fi
+  local script
 
   echo "$unit" > /run/git-live/active-unit-information
+  local unit
 }
 
 stopPuller() {
@@ -113,16 +106,15 @@ stopPuller() {
   fi
 
   unit_info=$(cat /run/git-live/active-unit-information)
-  local unit_info
   if [[ "$unit_info" =~ ([^ ]+\.timer) ]]; then
     timer_unit=${BASH_REMATCH[1]}
-    local timer_unit
-
     systemctl stop "$timer_unit"
+    local timer_unit
     rm -f /run/git-live/active-unit-information
   #else
     # TODO Log failure somewhere?
   fi
+  local unit_info
 }
 
 init() {
@@ -150,18 +142,20 @@ doTick() {
     fi
 
     # Just to avoid any issues due to the running pod
-    local mountPointSha="$(pwd | sha256sum | awk '{print $1}')"
+    mountPointSha="$(pwd | sha256sum | awk '{print $1}')"
     local gitIndex="/run/git-live/indexes/${mountPointSha}"
+    local mountPointSha
     echo "gitdir: $gitIndex" > .git
 
-    ref="$(git symbolic-ref --short HEAD)"
-    if [[ $? -ne 0 ]]; then
+    
+    if ! ref="$(git symbolic-ref --short HEAD)"; then
       echo "Failed to find head for $repo, skipping"
       continue
     fi
 
     git fetch -q origin "$ref" && \
     git reset -q --hard "origin/$ref"
+    local ref
   done </run/git-live/active-repos
 }
 
@@ -170,8 +164,9 @@ doMount() {
     exitFailure "git-live mount: syntax error. usage: git-live mount <mount dir> <json options>"
   fi
   local mountPoint="$1"
-  local mountPointSha="$(echo "$mountPoint" | sha256sum | awk '{print $1}')"
+  mountPointSha="$(echo "$mountPoint" | sha256sum | awk '{print $1}')"
   local gitIndex="/run/git-live/indexes/${mountPointSha}"
+  local mountPointSha
   shift
 
   json=$(printf '%s ' "${@}")
@@ -181,41 +176,41 @@ doMount() {
 
   local options="--separate-git-dir \"${gitIndex}\" --single-branch --depth 1"
 
-  repo="$(jq --raw-output -e '.repo' <<< "$json" 2>/dev/null)"
-  if [[ $? -ne 0 ]]; then
+  if ! repo="$(jq --raw-output -e '.repo' <<< "$json" 2>/dev/null)"; then
     exitFailure 'git-live mount: option repo missing in flexvolume configuration.'
   fi
 
   if [[ "$repo" != "http"* ]]; then
     exitFailure 'git-live mount: currently only supports HTTP(S) checkouts'
   fi
-
-  branch="$(jq --raw-output -e '.branch' <<< "$json")"
-  if [[ $? -eq 0 ]]; then
+  
+  if branch="$(jq --raw-output -e '.branch' <<< "$json")"; then
     options="$options --branch \"${branch}\""
   fi
+  local branch
 
-  gitUsernameBase64="$(jq --raw-output -e '.["kubernetes.io/secret/username"]' <<< "$json" 2>/dev/null)"
-  if [[ $? -eq 0 ]] ; then
-    gitPasswordBase64="$(jq --raw-output -e '.["kubernetes.io/secret/password"]' <<< "$json" 2>/dev/null)"
-    if [[ $? -ne 0 ]] ; then
+  if gitUsernameBase64="$(jq --raw-output -e '.["kubernetes.io/secret/username"]' <<< "$json" 2>/dev/null)"; then
+    if ! gitPasswordBase64="$(jq --raw-output -e '.["kubernetes.io/secret/password"]' <<< "$json" 2>/dev/null)"; then
       exitFailure "git-live mount: password not found. the flexVolume definition must contain a secretRef to a secret with username and password."
     fi
-    gitUsername="$(base64 --decode <<< "$gitUsernameBase64" 2>/dev/null)"
-    if [[ $? -ne 0 ]] ; then
+    local gitPasswordBase64
+    if ! gitUsername="$(base64 --decode <<< "$gitUsernameBase64" 2>/dev/null)"; then
       exitFailure "git-live mount: username secret is not base64 encoded."
     fi
-    gitPassword="$(base64 --decode <<< "$gitPasswordBase64" 2>/dev/null)"
-    if [[ $? -ne 0 ]] ; then
+    local gitUsername
+    if gitPassword="$(base64 --decode <<< "$gitPasswordBase64" 2>/dev/null)"; then
       exitFailure "git-live mount: password secret is not base64 encoded."
     fi
+    local gitPassword
 
     repo="$(sed -e "s|://|://${gitUsername}:${gitPassword}@|" <<< "$repo")"
   fi
+  local gitUsernameBase64
 
   if ! eval git clone "$options" -- "$repo" "$mountPoint" &>/dev/null; then
     exitFailure 'git-live mount: git clone failed'
   fi
+  local repo
 
   echo "$mountPoint" >> /run/git-live/active-repos
 
@@ -228,14 +223,17 @@ doUnmount() {
   local mountPoint="$1"
   if ! [[ -d "$mountPoint" ]]; then exitFailure "git-live unmount: Error, $mountPoint does not exist, can't umount."; fi
 
-  local mountPointSha="$(echo "$mountPoint" | sha256sum | awk '{print $1}')"
+  mountPointSha="$(echo "$mountPoint" | sha256sum | awk '{print $1}')"
   local gitIndex="/run/git-live/indexes/${mountPointSha}"
+  local mountPointSha
 
   sed -e "\|${mountPoint}|d" -i /run/git-live/active-repos
   rm -rf "$mountPoint" "$gitIndex"
 
   exitSuccess 'Unmount succeeded'
 }
+
+trap exitError ERR
 
 command=${1:-}
 if [[ -n $command ]]; then
@@ -245,6 +243,10 @@ fi
 case "$command" in
   init)
     init "$@"
+    ;;
+
+  deinit)
+    stopPuller
     ;;
 
   mount)
