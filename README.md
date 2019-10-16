@@ -68,7 +68,8 @@ This example pod will check out the flexvolume sources and then actively print
 any new lines as they are added to the README file and pushed.
 
 The interval argument is handled in the same manner as [systemd.time][1]
-timespans.
+timespans. The default interval - if not specified - can be set in the
+`git-live` script as `DEFAULT_INTERVAL_SEC`, and is default set to 15 minutes.
 
 Caveats
 -------
