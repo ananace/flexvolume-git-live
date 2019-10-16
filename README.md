@@ -59,11 +59,15 @@ spec:
       driver: ananace/git-live
       options:
         repo: https://github.com/ananace/flexvolume-git-live
+        interval: 5d
       readOnly: true
 ```
 
 This example pod will check out the flexvolume sources and then actively print
 any new lines as they are added to the README file and pushed.
+
+The interval argument is handled in the same manner as [systemd.time][1]
+timespans.
 
 Caveats
 -------
@@ -77,6 +81,7 @@ Currently, there's no way to differentiate read-only and read-write, the
 background updates will *always* override any user changes on every interval.
 
 If you only require a static git checkout that doesn't follow any new commits,
-the Kubernetes documentation [provides a better route][1].
+the Kubernetes documentation [provides a better route][2].
 
-[1]: https://kubernetes.io/docs/concepts/storage/volumes/#gitrepo
+[1]: https://www.freedesktop.org/software/systemd/man/systemd.time.html#Parsing%20Time%20Spans
+[2]: https://kubernetes.io/docs/concepts/storage/volumes/#gitrepo
