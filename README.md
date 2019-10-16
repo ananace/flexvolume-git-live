@@ -25,6 +25,7 @@ launching the background updates;
 - `awk`
 - `base64`
 - `git`
+- `grep`
 - `jq`
 - `realpath`
 - `sha256sum`
