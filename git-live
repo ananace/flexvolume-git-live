@@ -274,7 +274,7 @@ doMount() {
     if ! gitUsername="$(base64 --decode <<< "$gitUsernameBase64" 2>/dev/null)"; then
       exitFailure "git-live mount: username secret is not base64 encoded."
     fi
-    if gitPassword="$(base64 --decode <<< "$gitPasswordBase64" 2>/dev/null)"; then
+    if ! gitPassword="$(base64 --decode <<< "$gitPasswordBase64" 2>/dev/null)"; then
       exitFailure "git-live mount: password secret is not base64 encoded."
     fi
     local gitPasswordBase64
