@@ -69,15 +69,15 @@ any new lines as they are added to the README file and pushed.
 
 The interval argument is handled in the same manner as [systemd.time][1]
 timespans. The default interval - if not specified - can be set in the
-`git-live` script as `DEFAULT_INTERVAL_SEC`, and is default set to 15 minutes.
+`git-live` script as `DEFAULT_INTERVAL_SEC`, and is by default set to 15 minutes.
 
 Caveats
 -------
 
 Due to the fact that checkouts are done as root on the underlying system, the
-git index has been moved away from the repository itself. This also means that
-tools inside the running pod will not be able to retrieve any data from the
-mounted git index.
+git index has been moved away from the repository itself. This unfortunately
+means that tools inside the running pod will not be able to retrieve any data
+from the index of the git mount.
 
 Currently, there's no way to differentiate read-only and read-write, the
 background updates will *always* override any user changes on every interval.
