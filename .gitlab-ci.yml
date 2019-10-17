@@ -1,0 +1,6 @@
+---
+shellcheck:
+  stage: test
+  image: koalaman/shellcheck-alpine
+  script:
+    - shellcheck git-live
