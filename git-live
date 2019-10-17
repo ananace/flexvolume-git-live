@@ -212,10 +212,14 @@ doTick() {
         continue
       fi
 
-      git remote update origin &>/dev/null && \
-      git reset -q --hard "origin/$ref" && \
-      git submodule -q sync --recursive && \
-      git submodule -q update --init --recursive
+      # Run entire git update in an all-or-nothing attempt, and don't abort the
+      # entire git refresh because a single repo failed to update
+      (
+        git remote update origin &>/dev/null && \
+        git reset -q --hard "origin/$ref" && \
+        git submodule -q sync --recursive && \
+        git submodule -q update --init --recursive
+      ) || continue
       local ref
     fi
     local interval
