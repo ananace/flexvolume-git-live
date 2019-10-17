@@ -85,6 +85,52 @@ assertBinary() {
   fi
 }
 
+parseTimespan() {
+  timespan=$(printf '%s' "${@}")
+  local time=0
+  
+  parts=($(grep -Eo '[[:digit:]]+([^[:digit:]]+)?' <<<"$timespan"))
+  local timespan
+
+  for part in "${parts[@]}"; do
+    length=${part//[a-zA-Z]/}
+    scale_unit=${part//[0-9]/}
+
+    [[ -z "$length" ]] && scale_unit='err'
+
+    case $scale_unit in
+      y|year|years)
+        scale=31557600
+        ;;
+      M|month|months)
+        scale=2630016
+        ;;
+      w|week|weeks)
+        scale=604800
+        ;;
+      d|day|days)
+        scale=86400
+        ;;
+      h|hr|hour|hours)
+        scale=3600
+        ;;
+      m|min|minute|minutes)
+        scale=60
+        ;;
+      s|sec|second|seconds|'')
+        scale=1
+        ;;
+
+      *)
+        exitFailure "Unable to parse '${part}' as timespan segment"
+    esac
+
+    time=$((time + (length * scale)))
+  done
+
+  echo "$time"
+}
+
 startPuller() {
   if [[ -f /run/git-live/active-unit-information ]]; then
     # Puller timer is already running
@@ -128,7 +174,6 @@ init() {
   assertBinary jq
   assertBinary realpath
   assertBinary sha256sum
-  assertBinary systemd-analyze
   assertBinary systemd-run
 
   mkdir -p /run/git-live/indexes
@@ -220,7 +265,7 @@ doMount() {
   if ! interval="$(jq --raw-output -e '.interval' <<< "$json")"; then
     interval=$DEFAULT_INTERVAL_SEC
   fi
-  interval="$(($(systemd-analyze timespan "$interval" | grep 's:' | awk '{print $2}') / 1000000))"
+  interval="$(parseTimespan "$interval")"
 
   if gitUsernameBase64="$(jq --raw-output -e '.["kubernetes.io/secret/username"]' <<< "$json" 2>/dev/null)"; then
     if ! gitPasswordBase64="$(jq --raw-output -e '.["kubernetes.io/secret/password"]' <<< "$json" 2>/dev/null)"; then
@@ -298,6 +343,10 @@ case "$command" in
 
   git-refresh)
     doTick "$@"
+    ;;
+
+  parse)
+    parseTimespan "$@"
     ;;
 
   *)
