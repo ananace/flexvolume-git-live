@@ -236,7 +236,7 @@ doMount() {
     fi
     local gitPassword
 
-    repo="$(sed -e "s|://|://${gitUsername}:${gitPassword}@|" <<< "$repo")"
+    repo="${repo/:\/\//:\/\/${gitUsername}:${gitPassword}@}"
   fi
   local gitUsernameBase64
 
