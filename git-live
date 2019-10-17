@@ -271,17 +271,17 @@ doMount() {
     if ! gitPasswordBase64="$(jq --raw-output -e '.["kubernetes.io/secret/password"]' <<< "$json" 2>/dev/null)"; then
       exitFailure "git-live mount: password not found. the flexVolume definition must contain a secretRef to a secret with username and password."
     fi
-    local gitPasswordBase64
     if ! gitUsername="$(base64 --decode <<< "$gitUsernameBase64" 2>/dev/null)"; then
       exitFailure "git-live mount: username secret is not base64 encoded."
     fi
-    local gitUsername
     if gitPassword="$(base64 --decode <<< "$gitPasswordBase64" 2>/dev/null)"; then
       exitFailure "git-live mount: password secret is not base64 encoded."
     fi
-    local gitPassword
+    local gitPasswordBase64
 
     repo="${repo/:\/\//:\/\/${gitUsername}:${gitPassword}@}"
+    local gitUsername
+    local gitPassword
   fi
   local gitUsernameBase64
 
