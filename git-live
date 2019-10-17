@@ -191,6 +191,10 @@ doMount() {
   local mountPointSha
   shift
 
+  if [[ -d "$mountPoint" ]] && [[ -d "$gitIndex" ]]; then
+    exitSuccess "git-live mount: already mounted."
+  fi
+
   json=$(printf '%s ' "${@}")
   if ! jq -e . > /dev/null 2>&1 <<< "$json" ; then
     exitFailure "git-live mount: syntax error. invalid json: '$json'"
