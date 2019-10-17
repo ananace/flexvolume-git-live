@@ -256,7 +256,7 @@ doUnmount() {
   local gitIndex="/run/git-live/indexes/${mountPointSha}"
   local mountPointSha
 
-  sed -e "\|${mountPoint}|d" -i /run/git-live/active-repos
+  sed -e "\|${mountPoint}|d" -i /run/git-live/active-repos || true
   rm -rf "$mountPoint" "$gitIndex"
 
   exitSuccess 'Unmount succeeded'
