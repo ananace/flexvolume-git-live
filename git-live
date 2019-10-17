@@ -168,7 +168,9 @@ doTick() {
       fi
 
       git fetch -q origin "$ref" && \
-      git reset -q --hard "origin/$ref"
+      git reset -q --hard "origin/$ref" && \
+      git submodule -q sync --recursive && \
+      git submodule -q update --init --recursive
       local ref
     fi
     local interval
@@ -240,6 +242,10 @@ doMount() {
 
   if ! eval git clone "$options" -- "$repo" "$mountPoint" &>/dev/null; then
     exitFailure 'git-live mount: git clone failed'
+  fi
+  cd "$mountPoint"
+  if ! eval git submodule update --init --recursive &> /dev/null; then
+    exitFailure 'git-live mount: git submodule init failed'
   fi
   local repo
 
