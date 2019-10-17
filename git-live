@@ -212,7 +212,7 @@ doTick() {
         continue
       fi
 
-      git fetch -q origin "$ref" && \
+      git remote update origin &>/dev/null && \
       git reset -q --hard "origin/$ref" && \
       git submodule -q sync --recursive && \
       git submodule -q update --init --recursive
