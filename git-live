@@ -292,7 +292,7 @@ doMount() {
   fi
   local gitUsernameBase64
 
-  if [ -n "$DELETE_IF_EXISTS" ]; then
+  if [ -n "${DELETE_IF_EXISTS:-}" ]; then
     rm --one-file-system -rf "$gitIndex" "$mountPoint" &> /dev/null
   fi
 
