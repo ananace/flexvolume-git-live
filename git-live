@@ -6,6 +6,9 @@ set -euo pipefail
 # 15min
 DEFAULT_INTERVAL_SEC="900"
 
+# Remove target directory if it exists, uncomment to disable
+DELETE_IF_EXISTS="true"
+
 # ==============================
 # Example config
 # ==============================
@@ -289,7 +292,11 @@ doMount() {
   fi
   local gitUsernameBase64
 
-  if ! eval git clone "$options" -- "$repo" "$mountPoint" &>/dev/null; then
+  if [ -n "$DELETE_IF_EXISTS" ]; then
+    rm --one-file-system -rf "$gitIndex" "$mountPoint" &> /dev/null
+  fi
+
+  if ! eval git clone "$options" -- "$repo" "$mountPoint" &> /dev/null; then
     exitFailure 'git-live mount: git clone failed'
   fi
   cd "$mountPoint"
